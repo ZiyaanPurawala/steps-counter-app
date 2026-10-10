@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoPace - GPS Step & Weight Loss Tracker</title>
+    <meta name="description"
+        content="A premium mobile-first step counter and calorie burn estimator that uses GPS tracking to calculate steps and project time required for target weight loss goals.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css?v=2">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <i class="fa-solid fa-compass brand-icon"></i>
+                <h1>GeoPace</h1>
+            </div>
+            <button id="settings-toggle-btn" class="icon-btn" aria-label="Settings">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </header>
+
+        <!-- Main Dashboard View -->
+        <main class="dashboard-main">
+            <!-- GPS & Status Header -->
+            <div class="status-bar">
+                <div class="gps-status" id="gps-status-indicator">
+                    <span class="status-dot offline"></span>
+                    <span id="gps-status-text">GPS Offline</span>
+                </div>
+                <div class="active-workout-badge hidden" id="workout-badge">
+                    <i class="fa-solid fa-person-running text-pulse"></i> Tracking Active
+                </div>
+            </div>
+
+            <!-- Primary Metrics Grid -->
+            <section class="metrics-hero">
+                <div class="metric-circle-container">
+                    <svg class="progress-ring" width="220" height="220">
+                        <circle class="progress-ring__circle-bg" stroke="rgba(255, 255, 255, 0.05)" stroke-width="12"
+                            fill="transparent" r="94" cx="110" cy="110" />
+                        <circle class="progress-ring__circle" id="steps-progress-circle" stroke="url(#stepsGradient)"
+                            stroke-width="12" stroke-linecap="round" fill="transparent" r="94" cx="110" cy="110" />
+                        <!-- Define Gradients -->
+                        <defs>
+                            <linearGradient id="stepsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00f2fe" />
+                                <stop offset="100%" stop-color="#4facfe" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="metric-circle-content">
+                        <span class="metric-label"><i class="fa-solid fa-shoe-prints"></i> STEPS</span>
+                        <span class="metric-value" id="main-steps-val">0</span>
+                        <span class="metric-sub" id="main-distance-val">0.00 km</span>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card calories">
+                        <div class="stat-icon-wrapper">
+                            <i class="fa-solid fa-fire-flame-simple"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">CALORIES</span>
+                            <span class="stat-value" id="main-calories-val">0</span>
+                            <span class="stat-unit">kcal</span>
+                        </div>
+                    </div>
+                    <div class="stat-card duration">
+                        <div class="stat-icon-wrapper">
+                            <i class="fa-solid fa-stopwatch"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">DURATION</span>
+                            <span class="stat-value" id="main-time-val">00:00</span>
+                            <span class="stat-unit">mins</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Secondary Metrics Bar -->
+            <section class="metrics-grid">
+                <div class="mini-card">
+                    <i class="fa-solid fa-gauge-high card-icon"></i>
+                    <div>
+                        <span class="mini-label">Speed</span>
+                        <span class="mini-value" id="speed-val">0.0 <small>km/h</small></span>
+                    </div>
+                </div>
+                <div class="mini-card">
+                    <i class="fa-solid fa-person-walking-arrow-right card-icon"></i>
+                    <div>
+                        <span class="mini-label">Avg Pace</span>
+                        <span class="mini-value" id="pace-val">-- <small>min/km</small></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Action Controls -->
+            <section class="controls-panel">
+                <button id="start-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-play"></i> Start Track
+                </button>
+                <div class="btn-group hidden" id="tracking-controls">
+                    <button id="pause-btn" class="btn btn-warning">
+                        <i class="fa-solid fa-pause"></i> Pause
+                    </button>
+                    <button id="stop-btn" class="btn btn-danger">
+                        <i class="fa-solid fa-stop"></i> Stop & Save
+                    </button>
+                </div>
+                <!-- Simulation Button for testing on laptops -->
+                <button id="simulate-btn" class="btn btn-outline">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Sim Walk
+                </button>
+                <button id="share-last-btn" class="btn btn-primary hidden"
+                    style="background: linear-gradient(135deg, var(--accent-purple), #6366f1); color: white; box-shadow: 0 4px 15px var(--accent-purple-glow);">
+                    <i class="fa-solid fa-share-nodes"></i> Share Last Walk
+                </button>
+            </section>
+
+            <!-- Leaflet Map Tracker -->
+            <section class="map-section">
+                <div class="card-header">
+                    <h3 class="section-title"><i class="fa-solid fa-map-location-dot"></i> Live Route</h3>
+                    <button id="map-locate-btn" class="icon-text-btn" title="Center map on my location">
+                        <i class="fa-solid fa-crosshairs"></i> Locate
+                    </button>
+                </div>
+                <div class="map-card">
+                    <div id="map"></div>
+                    <div id="map-fallback" class="map-fallback hidden">
+                        <i class="fa-solid fa-location-crosshairs text-pulse"></i>
+                        <p>Waiting for GPS Coordinates...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Weight Loss & Step Estimator -->
+            <section class="weight-estimator-card">
+                <div class="card-header">
+                    <h3 class="section-title"><i class="fa-solid fa-calculator"></i> Weight Loss Goal Planner</h3>
+                </div>
+
+                <div class="estimator-inputs">
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label for="target-loss-slider">Target Weight Loss</label>
+                            <span class="slider-value-display"><strong id="target-loss-val">1.0</strong> kg</span>
+                        </div>
+                        <input type="range" id="target-loss-slider" min="0.5" max="25" step="0.5" value="1.0">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label for="daily-duration-slider">Target Daily Walk</label>
+                            <span class="slider-value-display"><strong id="daily-duration-val">60</strong> mins</span>
+                        </div>
+                        <input type="range" id="daily-duration-slider" min="15" max="180" step="15" value="60">
+                    </div>
+                </div>
+
+                <div class="estimator-divider"></div>
+
+                <div class="estimator-outputs">
+                    <div class="output-item total-calories">
+                        <span class="output-label">Total Calories to Burn</span>
+                        <div class="output-value">
+                            <span id="est-calories">7,700</span> <small>kcal</small>
+                        </div>
+                    </div>
+
+                    <div class="output-grid">
+                        <div class="output-sub-item">
+                            <i class="fa-solid fa-shoe-prints"></i>
+                            <div>
+                                <span class="output-sub-label">Required Steps</span>
+                                <span class="output-sub-val" id="est-steps">36,666</span>
+                            </div>
+                        </div>
+                        <div class="output-sub-item">
+                            <i class="fa-solid fa-road"></i>
+                            <div>
+                                <span class="output-sub-label">Required Distance</span>
+                                <span class="output-sub-val" id="est-distance">27.5 km</span>
+                            </div>
+                        </div>
+                        <div class="output-sub-item">
+                            <i class="fa-solid fa-clock"></i>
+                            <div>
+                                <span class="output-sub-label">Total Walking Time</span>
+                                <span class="output-sub-val" id="est-hours">5.5 hours</span>
+                            </div>
+                        </div>
+                        <div class="output-sub-item">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            <div>
+                                <span class="output-sub-label">Days to Target</span>
+                                <span class="output-sub-val" id="est-days">5.5 days</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="estimator-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Calculated using METs at your average speed (or default of 4.8 km/h). 1kg fat loss = ~7,700
+                        kcal.</span>
+                </div>
+            </section>
+
+            <!-- Workout History Logs -->
+            <section class="history-section">
+                <div class="card-header">
+                    <h3 class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Tracks</h3>
+                    <button id="clear-history-btn" class="text-btn danger">Clear</button>
+                </div>
+                <div class="history-list" id="history-list-container">
+                    <div class="empty-history">
+                        <i class="fa-solid fa-person-walking"></i>
+                        <p>No tracks recorded yet. Start walking to build history!</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Slide-out Settings Panel -->
+        <div class="settings-drawer" id="settings-drawer">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <h2><i class="fa-solid fa-sliders"></i> Tracker Profile</h2>
+                    <button id="settings-close-btn" class="icon-btn" aria-label="Close Settings">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <form id="settings-form" class="settings-form">
+                    <div class="form-group">
+                        <label for="profile-weight">Weight (kg)</label>
+                        <input type="number" id="profile-weight" min="30" max="250" value="75" required>
+                        <span class="form-help">Used for accurate calorie burn calculation.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile-height">Height (cm)</label>
+                        <input type="number" id="profile-height" min="100" max="250" value="175" required>
+                        <span class="form-help">Used to estimate step length.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile-steplength">Custom Step Length (cm)</label>
+                        <div class="input-with-checkbox">
+                            <input type="number" id="profile-steplength" min="30" max="150" value="72" disabled>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="profile-auto-step" checked>
+                                <span class="checkmark"></span> Auto
+                            </label>
+                        </div>
+                        <span class="form-help">Calculated automatically from height when checked.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile-daily-goal">Daily Step Goal</label>
+                        <input type="number" id="profile-daily-goal" min="1000" max="50000" step="500" value="10000">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary full-width">Save Settings</button>
+                </form>
+            </div>
+            <div class="settings-overlay" id="settings-overlay"></div>
+        </div>
+
+        <!-- Audio toggle floating button -->
+        <button id="audio-toggle-btn" class="floating-audio-btn" aria-label="Toggle sound alerts">
+            <i class="fa-solid fa-volume-high"></i>
+        </button>
+
+        <!-- Share Modal Overlay -->
+        <div class="share-modal" id="share-modal">
+            <div class="share-modal-content">
+                <div class="share-modal-header">
+                    <h2><i class="fa-solid fa-share-nodes"></i> Share Workout</h2>
+                    <button id="share-close-btn" class="icon-btn" aria-label="Close Share">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- The actual card rendered by html2canvas -->
+                <div class="share-card-wrapper">
+                    <div class="share-card" id="share-card-element">
+                        <div class="share-card-header">
+                            <div class="share-brand">
+                                <i class="fa-solid fa-compass"></i>
+                                <span>GeoPace</span>
+                            </div>
+                            <span class="share-card-date" id="share-date">July 20, 2026</span>
+                        </div>
+
+                        <div class="share-map-container">
+                            <!-- Neon vector trail outline of GPS walking path -->
+                            <svg class="share-svg-map" id="share-svg-map" viewBox="0 0 300 180">
+                                <path d="" fill="none" stroke="#00f2fe" stroke-width="4" stroke-linecap="round"
+                                    stroke-linejoin="round" id="share-svg-path" />
+                                <circle cx="0" cy="0" r="5" fill="#10b981" id="share-svg-start" class="hidden" />
+                                <circle cx="0" cy="0" r="6" fill="#ef4444" id="share-svg-end" class="hidden" />
+                            </svg>
+                            <div class="share-map-overlay-text" id="share-no-route">No route logged</div>
+                        </div>
+
+                        <div class="share-stats-grid">
+                            <div class="share-stat">
+                                <span class="share-lbl">Steps</span>
+                                <span class="share-val" id="share-steps">0</span>
+                            </div>
+                            <div class="share-stat">
+                                <span class="share-lbl">Distance</span>
+                                <span class="share-val" id="share-distance">0.00 km</span>
+                            </div>
+                            <div class="share-stat">
+                                <span class="share-lbl">Calories</span>
+                                <span class="share-val" id="share-calories">0 kcal</span>
+                            </div>
+                            <div class="share-stat">
+                                <span class="share-lbl">Duration</span>
+                                <span class="share-val" id="share-duration">00:00</span>
+                            </div>
+                        </div>
+
+                        <div class="share-card-footer">
+                            <span class="share-motto">"Stronger step by step"</span>
+                            <span class="share-app-url">geopace.app</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="share-actions-row">
+                    <button id="share-native-btn" class="btn btn-primary full-width">
+                        <i class="fa-solid fa-paper-plane"></i> Share to Instagram / Apps
+                    </button>
+                    <button id="share-download-btn" class="btn btn-outline full-width">
+                        <i class="fa-solid fa-download"></i> Save Image
+                    </button>
+                </div>
+            </div>
+            <div class="share-overlay" id="share-overlay"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- html2canvas Library for sharing screenshot exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Core Application Logic -->
+    <script src="app.js?v=2"></script>
+</body>
+
+</html>
